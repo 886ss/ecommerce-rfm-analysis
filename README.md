@@ -39,6 +39,8 @@ ecommerce-rfm-analysis/
 │   ├── rfm_analysis.py            // RFM 客户分层
 │   ├── funnel_attribution.py      // 漏斗归因分析
 │   └── clv_estimation.py          // CLV 生命周期价值估算
+├── docs/
+│   └── images/                    // 结果图表（用于 README 展示）
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py
@@ -77,6 +79,8 @@ M (Monetary)  — 总共花了多少钱？           → 越高越好
 
 → **21.5% 的客户贡献了 70.2% 的营收** — 经典的 Pareto 分布。
 
+![RFM 客户分层](docs/images/rfm_segments.png)
+
 ---
 
 ### 2. 漏斗归因分析 (`funnel_attribution.py`)
@@ -98,6 +102,8 @@ VIP Buyers (Top 5% 消费)
 **最大流失点**：Total → Repeat Buyers，**65.6% 的客户只买了一次就不再回来**。
 
 → 首次购买后的留存是增长的第一瓶颈。
+
+![漏斗归因分析](docs/images/funnel_attribution.png)
 
 ---
 
@@ -121,6 +127,8 @@ VIP Buyers (Top 5% 消费)
 | 人均 AOV | £419 |
 | 人均生命周期 | 142 天 |
 | Champions CLV | £6,697（中位数 £3,009） |
+
+![CLV 分析](docs/images/clv_analysis.png)
 
 ---
 
