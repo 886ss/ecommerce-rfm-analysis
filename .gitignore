@@ -1,4 +1,33 @@
-﻿__pycache__/
+# Bytecode
+__pycache__/
 *.pyc
-output/*.png
+*.pyo
+
+# Data files (large, not version-controlled)
+data/
+
+# Generated outputs
+output/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# IDE configurations
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Python packaging
+*.egg-info/
+dist/
+build/

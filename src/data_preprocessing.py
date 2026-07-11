@@ -1,38 +1,46 @@
-﻿import pandas as pd
-import numpy as np
+"""Data preprocessing: load and clean UCI Online Retail dataset."""
+import logging
 from pathlib import Path
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def load_and_clean(data_path: str) -> pd.DataFrame:
-    """Load raw UCI Online Retail data and return cleaned DataFrame."""
+    """Load raw UCI Online Retail data and return cleaned DataFrame.
+
+    Cleaning steps:
+        1. Drop rows with missing CustomerID.
+        2. Remove cancelled orders (InvoiceNo starting with 'C').
+        3. Remove rows with non-positive Quantity or UnitPrice.
+        4. Create Revenue = Quantity × UnitPrice column.
+        5. Ensure InvoiceDate is datetime.
+    """
     df = pd.read_excel(data_path, dtype={"CustomerID": "Int64"})
 
-    # Drop rows missing CustomerID (cannot attribute to a customer)
+    logger.info("Raw: %s rows", f"{len(df):,}")
+
     df = df.dropna(subset=["CustomerID"])
-
-    # Remove cancelled orders (InvoiceNo starts with 'C')
     df = df[~df["InvoiceNo"].astype(str).str.startswith("C", na=False)]
-
-    # Remove rows with non-positive Quantity or UnitPrice
     df = df[(df["Quantity"] > 0) & (df["UnitPrice"] > 0)]
 
-    # Create Revenue column
     df["Revenue"] = df["Quantity"] * df["UnitPrice"]
-
-    # Ensure InvoiceDate is datetime
     df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
 
-    print(f"[Preprocessing] Raw: 541,909 rows")
-    print(f"[Preprocessing] After cleaning: {len(df):,} rows")
-    print(f"[Preprocessing] Unique customers: {df['CustomerID'].nunique():,}")
-    print(f"[Preprocessing] Unique invoices: {df['InvoiceNo'].nunique():,}")
-    print(f"[Preprocessing] Date range: {df['InvoiceDate'].min()} -> {df['InvoiceDate'].max()}")
-    print(f"[Preprocessing] Total revenue: {df['Revenue'].sum():,.0f}")
+    logger.info("After cleaning: %s rows | %s customers | %s invoices",
+                f"{len(df):,}", f"{df['CustomerID'].nunique():,}",
+                f"{df['InvoiceNo'].nunique():,}")
+    logger.info("Date range: %s → %s",
+                df["InvoiceDate"].min().strftime("%Y-%m-%d"),
+                df["InvoiceDate"].max().strftime("%Y-%m-%d"))
+    logger.info("Total revenue: %s", f"£{df['Revenue'].sum():,.0f}")
 
     return df
 
 
 if __name__ == "__main__":
-    data_path = str(Path(__file__).parent.parent / "data" / "Online Retail.xlsx")
-    df = load_and_clean(data_path)
+    from config import DATA_DIR, DATA_FILE, setup_logging
+    setup_logging()
+    df = load_and_clean(str(DATA_DIR / DATA_FILE))
     print(df.head())

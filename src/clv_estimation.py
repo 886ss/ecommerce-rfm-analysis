@@ -1,140 +1,182 @@
-﻿"""
-CLV Estimation: Customer Lifetime Value estimation using
-historical revenue and a simple predictive model.
 """
-import pandas as pd
-import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+CLV Estimation: Customer Lifetime Value estimation using historical revenue
+and a simple predictive model.
+"""
+import logging
 from pathlib import Path
-from data_preprocessing import load_and_clean
-from rfm_analysis import compute_rfm, score_rfm, segment_rfm
+
+import numpy as np
+import pandas as pd
+
+try:
+    from .plotting import SEGMENT_COLORS, save_chart, plt
+    from .rfm_analysis import compute_rfm, score_rfm, segment_rfm
+except ImportError:
+    from plotting import SEGMENT_COLORS, save_chart, plt  # type: ignore[no-redef]
+    from rfm_analysis import compute_rfm, score_rfm, segment_rfm  # type: ignore[no-redef]
+
+logger = logging.getLogger(__name__)
 
 
-def estimate_clv(cleaned_df: pd.DataFrame, rfm: pd.DataFrame) -> pd.DataFrame:
-    """Estimate CLV for each customer using historical + predictive approach."""
-    ref_date = cleaned_df["InvoiceDate"].max()
+def estimate_clv(
+    df: pd.DataFrame,
+    rfm: pd.DataFrame,
+    *,
+    min_lifespan_days: int = 30,
+    freq_cap: int = 10,
+    projection_months: int = 12,
+) -> pd.DataFrame:
+    """Estimate CLV per customer via naive linear extrapolation.
 
-    cust = cleaned_df.groupby("CustomerID").agg(
-        Total_Revenue=("Revenue", "sum"),
-        Total_Orders=("InvoiceNo", "nunique"),
+    .. warning::
+       This is a **simplified demonstration model**, not production-grade.
+       Limitations include:
+
+       - Assumes constant monthly purchase frequency for the projection
+         period (no churn, no seasonality).
+       - Caps monthly purchase frequency at ``freq_cap`` — an arbitrary
+         guardrail, not a business rule.
+       - No discount rate, no lifecycle stages.
+
+       For production use, consider **BG/NBD** or **Pareto/NBD** from the
+       ``lifetimes`` library.
+
+    Args:
+        df: Cleaned transaction DataFrame.
+        rfm: Pre-computed RFM DataFrame (from ``run_rfm()``).
+        min_lifespan_days: Floor for single-purchase customer lifespan,
+            to prevent Purchase_Freq inflation.
+        freq_cap: Maximum monthly purchase frequency for CLV projection.
+        projection_months: Number of months to project forward.
+
+    Returns:
+        DataFrame with per-customer CLV metrics, merged with RFM segments.
+    """
+    # Group only for columns RFM doesn't already provide.
+    cust = df.groupby("CustomerID").agg(
         Total_Items=("Quantity", "sum"),
         First_Purchase=("InvoiceDate", "min"),
         Last_Purchase=("InvoiceDate", "max"),
     ).reset_index()
 
-    cust["AOV"] = cust["Total_Revenue"] / cust["Total_Orders"]
-    cust["Lifespan_Days"] = (cust["Last_Purchase"] - cust["First_Purchase"]).dt.days
-    cust["Lifespan_Days"] = cust["Lifespan_Days"].clip(lower=1)
-    cust["Purchase_Freq"] = cust["Total_Orders"] / (cust["Lifespan_Days"] / 30)
+    # Single merge — Monetary = total revenue, Frequency = total orders.
+    clv = cust.merge(rfm, on="CustomerID", how="left")
 
-    obs_months = max((ref_date - cust["First_Purchase"]).dt.days.mean() / 30, 1)
+    # ── Derived features (use RFM columns directly) ──
+    clv["AOV"] = clv["Monetary"] / clv["Frequency"]
+    clv["Lifespan_Days"] = (
+        (clv["Last_Purchase"] - clv["First_Purchase"]).dt.days
+    ).clip(lower=min_lifespan_days)
+    clv["Purchase_Freq"] = clv["Frequency"] / (clv["Lifespan_Days"] / 30)
 
-    cust["Historical_CLV"] = cust["Total_Revenue"]
-    cust["Predictive_CLV_12m"] = cust["AOV"] * cust["Purchase_Freq"].clip(upper=10) * 12
-
-    # Merge: include Recency, Frequency, Monetary from rfm
-    merge_cols = ["CustomerID", "Recency", "Frequency", "Monetary",
-                  "R_Score", "F_Score", "M_Score", "RFM_Score", "Segment"]
-    clv = cust.merge(rfm[merge_cols], on="CustomerID", how="left")
+    # ── CLV estimates ──
+    clv["Historical_CLV"] = clv["Monetary"]
+    clv["Predictive_CLV_12m"] = (
+        clv["AOV"] * clv["Purchase_Freq"].clip(upper=freq_cap) * projection_months
+    )
 
     return clv
 
 
 def summarize_clv_by_segment(clv: pd.DataFrame) -> pd.DataFrame:
+    """Return per-segment CLV summary statistics."""
     summary = clv.groupby("Segment").agg(
         Customers=("CustomerID", "count"),
         Avg_Historical_CLV=("Historical_CLV", "mean"),
         Median_Historical_CLV=("Historical_CLV", "median"),
         Avg_Predictive_CLV_12m=("Predictive_CLV_12m", "mean"),
         Total_Historical_Revenue=("Historical_CLV", "sum"),
-        Pct_of_Total_Revenue=("Historical_CLV", lambda x: x.sum() / clv["Historical_CLV"].sum() * 100),
+        Pct_of_Total_Revenue=(
+            "Historical_CLV",
+            lambda x: x.sum() / clv["Historical_CLV"].sum() * 100,
+        ),
         Avg_AOV=("AOV", "mean"),
         Avg_Lifespan_Days=("Lifespan_Days", "mean"),
     ).sort_values("Avg_Historical_CLV", ascending=False)
 
-    for col in ["Avg_Historical_CLV", "Median_Historical_CLV", "Avg_Predictive_CLV_12m",
-                "Avg_AOV", "Total_Historical_Revenue"]:
+    for col in [
+        "Avg_Historical_CLV", "Median_Historical_CLV",
+        "Avg_Predictive_CLV_12m", "Avg_AOV", "Total_Historical_Revenue",
+        "Avg_Lifespan_Days",
+    ]:
         summary[col] = summary[col].round(0)
-    summary["Avg_Lifespan_Days"] = summary["Avg_Lifespan_Days"].round(0)
     summary["Pct_of_Total_Revenue"] = summary["Pct_of_Total_Revenue"].round(1)
 
     return summary
 
 
-def plot_clv(clv: pd.DataFrame, output_dir: str):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+def plot_clv(clv: pd.DataFrame, output_dir: str) -> None:
+    """Generate CLV visualisation: boxplot + scatter by segment."""
+    _, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    # Boxplot by segment (top 5 by count)
+    # ── Boxplot: top-5 segments by count ──
     top_segs = clv["Segment"].value_counts().head(5).index.tolist()
-    plot_data = clv[clv["Segment"].isin(top_segs)].copy()
-    plot_data["Log_CLV"] = np.log1p(plot_data["Historical_CLV"])
+    plot_data = clv[clv["Segment"].isin(top_segs)]
+    plot_data = plot_data.assign(Log_CLV=np.log1p(plot_data["Historical_CLV"]))
 
-    box_data = [plot_data[plot_data["Segment"] == s]["Log_CLV"].values for s in top_segs]
-    bp = axes[0].boxplot(
-        box_data, tick_labels=top_segs, patch_artist=True, showfliers=False,
+    box_data = [
+        plot_data.loc[plot_data["Segment"] == s, "Log_CLV"].values
+        for s in top_segs
+    ]
+    axes[0].boxplot(
+        box_data, patch_artist=True, showfliers=False,
         boxprops=dict(facecolor="#3498db", alpha=0.7),
         medianprops=dict(color="darkred", linewidth=2),
     )
-    axes[0].set_title("Historical CLV Distribution by Segment (log scale)", fontsize=11, fontweight="bold")
+    axes[0].set_xticklabels(top_segs)
+    axes[0].set_title(
+        "Historical CLV Distribution by Segment (log scale)",
+        fontsize=11, fontweight="bold",
+    )
     axes[0].set_ylabel("Log(1 + CLV)", fontsize=10)
     axes[0].tick_params(axis="x", rotation=20, labelsize=8)
 
-    # Scatter: Recency vs Monetary, colored by segment
-    seg_colors = {
-        "Champions": "#2ecc71", "Loyal Customers": "#3498db",
-        "Potential Loyalists": "#9b59b6", "At Risk": "#f39c12",
-        "Needs Attention": "#e74c3c", "New Customers": "#1abc9c",
-        "About to Sleep": "#e67e22", "Promising": "#2c3e50",
-        "Hibernating": "#95a5a6", "Lost": "#bdc3c7",
-    }
+    # ── Scatter: Recency vs CLV, coloured by segment ──
     for seg in top_segs:
-        subset = clv[clv["Segment"] == seg]
-        axes[1].scatter(subset["Recency"], np.log1p(subset["Historical_CLV"]),
-                        c=seg_colors.get(seg, "gray"), label=seg, alpha=0.5, s=15)
+        subset = plot_data[plot_data["Segment"] == seg]
+        axes[1].scatter(
+            subset["Recency"], subset["Log_CLV"],
+            c=SEGMENT_COLORS.get(seg, "gray"), label=seg, alpha=0.5, s=15,
+        )
     axes[1].set_xlabel("Recency (days)", fontsize=10)
     axes[1].set_ylabel("Log(1 + Historical CLV)", fontsize=10)
     axes[1].set_title("Recency vs CLV by Segment", fontsize=11, fontweight="bold")
     axes[1].legend(fontsize=7, loc="upper right", markerscale=2)
 
-    plt.tight_layout()
-    path = str(Path(output_dir) / "clv_analysis.png")
-    plt.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"[CLV] Chart saved: {path}")
+    path = save_chart(axes[0].figure, output_dir, "clv_analysis.png")
+    logger.info("Chart saved: %s", path)
 
 
-def run_clv(data_path: str, output_dir: str):
-    df = load_and_clean(data_path)
-    ref_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
-    rfm = compute_rfm(df, ref_date)
-    rfm = score_rfm(rfm)
-    rfm = segment_rfm(rfm)
-
+def run_clv(
+    df: pd.DataFrame, rfm: pd.DataFrame, output_dir: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Run full CLV pipeline, reusing pre-computed RFM table."""
     clv = estimate_clv(df, rfm)
     summary = summarize_clv_by_segment(clv)
 
-    print("\n[CLV] Segment CLV Summary:")
-    print(summary.to_string())
-
-    print(f"\n[CLV] Overall Metrics:")
-    print(f"  Avg Historical CLV: {clv['Historical_CLV'].mean():,.0f}")
-    print(f"  Median Historical CLV: {clv['Historical_CLV'].median():,.0f}")
-    print(f"  Total Revenue Captured: {clv['Historical_CLV'].sum():,.0f}")
-    print(f"  Avg AOV: {clv['AOV'].mean():.2f}")
-    print(f"  Avg Lifespan: {clv['Lifespan_Days'].mean():.0f} days")
+    logger.info("Segment CLV Summary:\n%s", summary.to_string())
+    logger.info("Overall Metrics:")
+    logger.info("  Avg Historical CLV: %s", f"{clv['Historical_CLV'].mean():,.0f}")
+    logger.info("  Median Historical CLV: %s", f"{clv['Historical_CLV'].median():,.0f}")
+    logger.info("  Total Revenue Captured: %s", f"{clv['Historical_CLV'].sum():,.0f}")
+    logger.info("  Avg AOV: %.2f", clv["AOV"].mean())
+    logger.info("  Avg Lifespan: %.0f days", clv["Lifespan_Days"].mean())
 
     plot_clv(clv, output_dir)
 
     clv_path = Path(output_dir) / "clv_table.csv"
     clv.to_csv(clv_path, index=False)
-    print(f"[CLV] Table saved: {clv_path}")
+    logger.info("Table saved: %s", clv_path)
 
     return clv, summary
 
 
 if __name__ == "__main__":
-    DATA = str(Path(__file__).parent.parent / "data" / "Online Retail.xlsx")
-    OUT = str(Path(__file__).parent.parent / "output")
-    run_clv(DATA, OUT)
+    from config import DATA_DIR, DATA_FILE, OUTPUT_DIR, setup_logging
+    setup_logging()
+    from data_preprocessing import load_and_clean  # type: ignore[import-not-found]
+
+    df = load_and_clean(str(DATA_DIR / DATA_FILE))
+    ref_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
+    rfm = segment_rfm(score_rfm(compute_rfm(df, ref_date)))
+    run_clv(df, rfm, str(OUTPUT_DIR))
