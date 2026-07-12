@@ -50,8 +50,15 @@ class BusinessParams:
 
 def load_business_params(path: str | Path) -> BusinessParams:
     """Load business thresholds from a TOML file."""
-    with open(path, "rb") as fh:
-        raw: dict[str, Any] = tomllib.load(fh)
+    try:
+        with open(path, "rb") as fh:
+            raw: dict[str, Any] = tomllib.load(fh)
+    except Exception as e:
+        raise ValueError(
+            f"Failed to parse business_params TOML: {path}\n"
+            f"  → {e}\n"
+            f"  Check that the file has [funnel] and [clv] sections."
+        ) from e
 
     funnel = raw.get("funnel", {})
     clv = raw.get("clv", {})

@@ -71,7 +71,11 @@ def estimate_clv(
     clv = cust.merge(rfm, on="CustomerID", how="left")
 
     # ── Derived features (use RFM columns directly) ──
-    clv["AOV"] = clv["Monetary"] / clv["Frequency"]
+    clv["AOV"] = np.where(
+        clv["Frequency"] > 0,
+        clv["Monetary"] / clv["Frequency"],
+        0.0,
+    )
     clv["Lifespan_Days"] = (
         (clv["Last_Purchase"] - clv["First_Purchase"]).dt.days
     ).clip(lower=min_lifespan_days)
@@ -156,7 +160,8 @@ def plot_clv(clv: pd.DataFrame, output_dir: str) -> None:
 
 
 def run_clv(
-    df: pd.DataFrame, rfm: pd.DataFrame, output_dir: str,
+    df: pd.DataFrame, rfm: pd.DataFrame, output_dir: str, *,
+    no_plot: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run full CLV pipeline, reusing pre-computed RFM table."""
     clv = estimate_clv(df, rfm)
@@ -170,7 +175,8 @@ def run_clv(
     logger.info("  Avg AOV: %.2f", clv["AOV"].mean())
     logger.info("  Avg Lifespan: %.0f days", clv["Lifespan_Days"].mean())
 
-    plot_clv(clv, output_dir)
+    if not no_plot:
+        plot_clv(clv, output_dir)
 
     clv_path = Path(output_dir) / "clv_table.csv"
     clv.to_csv(clv_path, index=False)

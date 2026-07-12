@@ -13,6 +13,8 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
+import traceback
 from pathlib import Path
 
 try:
@@ -106,7 +108,6 @@ def main(argv: list[str] | None = None) -> None:
     # ── Resolve paths ──
     data_path = Path(args.data) if args.data else DATA_DIR / DATA_FILE
     output_dir = Path(args.output) if args.output else OUTPUT_DIR
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Logging ──
     setup_logging(level=getattr(logging, args.log_level))
@@ -127,6 +128,15 @@ def main(argv: list[str] | None = None) -> None:
         )
         sys.exit(1)
 
+    # ── Guard: output dir must be writable ──
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / ".write_test").touch()
+        (output_dir / ".write_test").unlink()
+    except OSError as e:
+        logger.error("Output directory not writable: %s (%s)", output_dir, e)
+        sys.exit(1)
+
     # ── Load optional configs ──
     column_mapping: ColumnMapping | None = None
     if args.mapping:
@@ -139,10 +149,14 @@ def main(argv: list[str] | None = None) -> None:
         biz = load_business_params(args.params)
 
     # ── Load data (once) ──
+    t0 = time.monotonic()
     df = load_and_clean(str(data_path), mapping=column_mapping)
+    logger.info("Data loaded in %.1fs", time.monotonic() - t0)
 
     # ── RFM is the foundation — always computed, selectively reported ──
-    rfm, rfm_summary = run_rfm(df, str(output_dir))
+    t0 = time.monotonic()
+    rfm, rfm_summary = run_rfm(df, str(output_dir), no_plot=args.no_plot)
+    logger.info("RFM completed in %.1fs", time.monotonic() - t0)
 
     run_all = args.only is None
 
@@ -151,20 +165,26 @@ def main(argv: list[str] | None = None) -> None:
         logger.info("  STEP %s: Funnel Attribution Analysis",
                     "2/3" if run_all else "")
         logger.info("=" * 60)
+        t0 = time.monotonic()
         _funnel, _insights = run_funnel(
             df, str(output_dir), rfm=rfm,
+            no_plot=args.no_plot,
             repeat_buyer_threshold=biz.repeat_buyer_threshold,
             regular_buyer_threshold=biz.regular_buyer_threshold,
             high_value_quantile=biz.high_value_quantile,
             vip_quantile=biz.vip_quantile,
         )
+        logger.info("Funnel completed in %.1fs", time.monotonic() - t0)
 
     if run_all or args.only == "clv":
         logger.info("=" * 60)
         logger.info("  STEP %s: Customer Lifetime Value Estimation",
                     "3/3" if run_all else "")
         logger.info("=" * 60)
-        _clv, _clv_summary = run_clv(df, rfm, str(output_dir))
+        t0 = time.monotonic()
+        _clv, _clv_summary = run_clv(df, rfm, str(output_dir),
+                                       no_plot=args.no_plot)
+        logger.info("CLV completed in %.1fs", time.monotonic() - t0)
 
     logger.info("=" * 60)
     logger.info("  ALL ANALYSES COMPLETE")
@@ -173,4 +193,9 @@ def main(argv: list[str] | None = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        logger = logging.getLogger("main")
+        logger.error("Fatal error — analysis aborted.\n%s", traceback.format_exc())
+        sys.exit(1)

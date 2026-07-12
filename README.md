@@ -12,7 +12,7 @@
 
 ## 数据集
 
-**UCI Machine Learning Repository — Online Retail Dataset**
+### UCI Machine Learning Repository — Online Retail Dataset
 
 | 指标 | 数值 |
 |------|------|
@@ -52,9 +52,9 @@ python -m src.main --data ./data/xxx.xlsx --params ./business_params.toml
 | `--output PATH` | 输出目录（默认 `output/`） |
 | `--mapping PATH` | 列名映射配置（`column_mapping.toml`） |
 | `--params PATH` | 业务参数配置（`business_params.toml`） |
-| `--only {rfm,funnel,clv}` | 只运行一个模块（RFM 为基础，funnel/clv 会自动先跑 RFM） |
-| `--no-plot` | 跳过图表（CI / 无 GUI 环境） |
-| `--log-level LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） |
+| `--only {rfm,funnel,clv}` | 只运行指定模块（RFM 为基础，始终先执行） |
+| `--no-plot` | 跳过图表生成（CI / 无 GUI 环境） |
+| `--log-level LEVEL` | 日志级别：DEBUG（含步骤耗时）/ INFO / WARNING / ERROR |
 
 **程序化 API（保持兼容）**：
 
@@ -113,6 +113,9 @@ ecommerce-rfm-analysis/
 | Lint | `ruff check src/ tests/` | All checks passed ✅ |
 | CI | push → GitHub Actions | pytest + mypy + ruff 自动运行 |
 
+所有异常均通过日志输出完整 traceback（`--log-level DEBUG` 可看每步骤耗时）。
+数据文件缺失、列名不匹配、输出目录不可写等常见问题均有中文友好的报错提示。
+
 ---
 
 ## 三大分析模块
@@ -161,7 +164,7 @@ pytest tests/ -v
 
 ## 技术栈
 
-```
+```text
 Python 3.12
 ├── pandas~=2.0      — 数据处理
 ├── numpy~=1.24      — 数值计算

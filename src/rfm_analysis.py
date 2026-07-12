@@ -170,7 +170,8 @@ def plot_rfm(rfm: pd.DataFrame, output_dir: str) -> None:
 
 # ── Entry point ───────────────────────────────────────────────────────
 
-def run_rfm(df: pd.DataFrame, output_dir: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def run_rfm(df: pd.DataFrame, output_dir: str, *,
+            no_plot: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run full RFM pipeline on pre-loaded data."""
     ref_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
     logger.info("Reference date: %s", ref_date.date())
@@ -182,7 +183,8 @@ def run_rfm(df: pd.DataFrame, output_dir: str) -> tuple[pd.DataFrame, pd.DataFra
     summary = summarize_segments(rfm)
     logger.info("Segment Summary:\n%s", summary.to_string())
 
-    plot_rfm(rfm, output_dir)
+    if not no_plot:
+        plot_rfm(rfm, output_dir)
 
     rfm_path = Path(output_dir) / "rfm_table.csv"
     rfm.to_csv(rfm_path, index=False)

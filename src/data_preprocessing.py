@@ -57,6 +57,16 @@ def load_and_clean(
         cancel_mode = mapping.cancel_mode
         cancel_value = mapping.cancel_value
     else:
+        # Basic check: warn if UCI-standard columns are missing
+        _expected = ["CustomerID", "InvoiceNo", "InvoiceDate", "Quantity", "UnitPrice"]
+        _missing = [c for c in _expected if c not in df.columns]
+        if _missing:
+            raise KeyError(
+                f"Missing required columns: {_missing}\n"
+                f"Your data has columns: {list(df.columns)}\n"
+                f"Either rename your columns to match UCI standard names, "
+                f"or provide a --mapping column_mapping.toml file."
+            )
         cancel_mode = "prefix"
         cancel_value = "C"
 

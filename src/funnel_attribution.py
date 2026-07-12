@@ -148,6 +148,8 @@ def run_funnel(
     df: pd.DataFrame,
     output_dir: str,
     rfm: pd.DataFrame | None = None,
+    *,
+    no_plot: bool = False,
     **funnel_kwargs: Any,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Run full funnel analysis on pre-loaded data.
@@ -156,6 +158,7 @@ def run_funnel(
         df: Cleaned transaction DataFrame.
         output_dir: Directory for output CSV and PNG files.
         rfm: Optional pre-computed RFM table (avoids redundant groupby).
+        no_plot: If True, skip chart generation (CI / headless).
         **funnel_kwargs: Forwarded to :func:`build_funnel`
             (repeat_buyer_threshold, regular_buyer_threshold, etc.).
 
@@ -175,7 +178,8 @@ def run_funnel(
             info["dropoff"], f"{info['lost_customers']:,}",
         )
 
-    plot_funnel(funnel, output_dir)
+    if not no_plot:
+        plot_funnel(funnel, output_dir)
 
     funnel_path = Path(output_dir) / "funnel_table.csv"
     funnel.to_csv(funnel_path, index=False)

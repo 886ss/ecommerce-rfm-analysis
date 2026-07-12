@@ -87,9 +87,22 @@ def load_column_mapping(path: str | Path) -> ColumnMapping:
         unit_price   = "price"
 
     """
-    with open(path, "rb") as fh:
-        raw = tomllib.load(fh)
+    try:
+        with open(path, "rb") as fh:
+            raw = tomllib.load(fh)
+    except Exception as e:
+        raise ValueError(
+            f"Failed to parse column_mapping TOML: {path}\n"
+            f"  → {e}\n"
+            f"  Check that the file has a [required] section with: "
+            f"customer_id, invoice_no, invoice_date, quantity, unit_price."
+        ) from e
 
+    if "required" not in raw:
+        raise KeyError(
+            f"Missing [required] section in {path}. "
+            f"Expected keys: customer_id, invoice_no, invoice_date, quantity, unit_price."
+        )
     req = raw["required"]
     opt = raw.get("optional", {})
     cancel = raw.get("cancel_detection", {})
