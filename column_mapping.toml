@@ -1,0 +1,23 @@
+# 列名映射配置 ─────────────────────────────────
+# 如果你的 Excel 列名与 UCI 数据集不同，改这个文件即可。
+# 左侧 = 内部标准名 (不可改)，右侧 = 你数据中的实际列名。
+# -------------------------------------------------
+
+[required]
+customer_id  = "CustomerID"     # 客户唯一标识
+invoice_no   = "InvoiceNo"      # 订单号
+invoice_date = "InvoiceDate"    # 订单日期
+quantity     = "Quantity"        # 购买数量
+unit_price   = "UnitPrice"       # 单价
+
+[optional]
+stock_code   = "StockCode"      # 商品编码 (可选)
+description  = "Description"    # 商品描述 (可选)
+country      = "Country"        # 国家 (可选)
+
+[cancel_detection]
+# 如何识别取消/退款订单。支持两种模式：
+#   mode = "prefix"  → 检查 invoice_no 列是否以 value 开头
+#   mode = "column"  → 检查指定列的值是否等于 value (未来扩展)
+mode  = "prefix"
+value = "C"

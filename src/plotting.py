@@ -1,9 +1,16 @@
 """Shared plotting utilities — backend setup, colour palette, save helper."""
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
 
 # ── Segment colour palette ──
 SEGMENT_COLORS: dict[str, str] = {
@@ -25,8 +32,10 @@ PALETTE_10 = [
     "#1abc9c", "#e67e22", "#95a5a6", "#34495e", "#7f8c8d",
 ]
 
+__all__ = ["SEGMENT_COLORS", "PALETTE_10", "save_chart", "plt"]
 
-def save_chart(fig: plt.Figure, output_dir: str | Path, filename: str,
+
+def save_chart(fig: Figure, output_dir: str | Path, filename: str,
                dpi: int = 150) -> Path:
     """Save figure to output_dir, close it, and return the saved path."""
     path = Path(output_dir) / filename

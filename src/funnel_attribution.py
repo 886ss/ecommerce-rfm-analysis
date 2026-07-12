@@ -2,15 +2,18 @@
 Funnel Attribution Analysis: maps the customer journey from first purchase
 through repeat purchase to VIP status, identifying the largest drop-off points.
 """
+from __future__ import annotations
+
 import logging
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
 try:
-    from .plotting import save_chart, plt
+    from .plotting import plt, save_chart
 except ImportError:
-    from plotting import save_chart, plt  # type: ignore[no-redef]
+    from plotting import plt, save_chart  # type: ignore[import-not-found, no-redef]
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +26,22 @@ FUNNEL_STAGE_NAMES = [
 ]
 
 
-def build_funnel(df: pd.DataFrame, rfm: pd.DataFrame | None = None) -> pd.DataFrame:
+def build_funnel(
+    df: pd.DataFrame,
+    rfm: pd.DataFrame | None = None,
+    *,
+    repeat_buyer_threshold: int = 2,
+    regular_buyer_threshold: int = 5,
+    high_value_quantile: float = 0.80,
+    vip_quantile: float = 0.95,
+) -> pd.DataFrame:
     """Build purchase-based conversion funnel from cleaned transactions.
 
     Accepts an optional pre-computed RFM table to avoid a redundant
     CustomerID groupby when called from the main pipeline.
+
+    Thresholds are keyword-only with UCI-default values.  Override via
+    ``business_params.toml`` for different business domains.
     """
     if rfm is not None and "Frequency" in rfm.columns and "Monetary" in rfm.columns:
         purchase_counts = rfm.set_index("CustomerID")["Frequency"]
@@ -42,12 +56,12 @@ def build_funnel(df: pd.DataFrame, rfm: pd.DataFrame | None = None) -> pd.DataFr
         total_spend = cust["Total_Spend"]
         total = len(cust)
 
-    thresholds = total_spend.quantile([0.80, 0.95])
+    thresholds = total_spend.quantile([high_value_quantile, vip_quantile])
 
     stage_counts = {
         "Total Customers":   total,
-        "Repeat Buyers":     int((purchase_counts >= 2).sum()),
-        "Regular Buyers":    int((purchase_counts >= 5).sum()),
+        "Repeat Buyers":     int((purchase_counts >= repeat_buyer_threshold).sum()),
+        "Regular Buyers":    int((purchase_counts >= regular_buyer_threshold).sum()),
         "High-Value Buyers": int((total_spend >= thresholds.iloc[0]).sum()),
         "VIP Buyers":        int((total_spend >= thresholds.iloc[1]).sum()),
     }
@@ -70,9 +84,9 @@ def build_funnel(df: pd.DataFrame, rfm: pd.DataFrame | None = None) -> pd.DataFr
     return funnel_df
 
 
-def analyze_dropoff(funnel_df: pd.DataFrame) -> dict[str, dict]:
+def analyze_dropoff(funnel_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
     """Identify drop-off magnitude at each funnel transition."""
-    insights: dict[str, dict] = {}
+    insights: dict[str, dict[str, Any]] = {}
     for i in range(1, len(funnel_df)):
         stage_name = funnel_df.iloc[i]["Stage"]
         prev_cust = int(funnel_df.iloc[i - 1]["Customers"])
@@ -99,7 +113,7 @@ def plot_funnel(funnel_df: pd.DataFrame, output_dir: str) -> None:
     axes[0].barh(stages, counts, color=colors, edgecolor="white", height=0.6)
     axes[0].set_xlabel("Number of Customers", fontsize=11)
     axes[0].set_title("Customer Funnel", fontsize=13, fontweight="bold")
-    for i, (s, c) in enumerate(zip(stages, counts)):
+    for i, (_stage, c) in enumerate(zip(stages, counts, strict=True)):
         pct = funnel_df.iloc[::-1].iloc[i]["Pct_of_Total"]
         axes[0].text(c + max(counts) * 0.01, i,
                      f"{c:,} ({pct}%)", va="center", fontsize=9)
@@ -130,25 +144,31 @@ def plot_funnel(funnel_df: pd.DataFrame, output_dir: str) -> None:
     logger.info("Chart saved: %s", path)
 
 
-def run_funnel(df: pd.DataFrame, output_dir: str,
-               rfm: pd.DataFrame | None = None) -> tuple[pd.DataFrame, dict]:
+def run_funnel(
+    df: pd.DataFrame,
+    output_dir: str,
+    rfm: pd.DataFrame | None = None,
+    **funnel_kwargs: Any,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Run full funnel analysis on pre-loaded data.
 
     Args:
         df: Cleaned transaction DataFrame.
         output_dir: Directory for output CSV and PNG files.
         rfm: Optional pre-computed RFM table (avoids redundant groupby).
+        **funnel_kwargs: Forwarded to :func:`build_funnel`
+            (repeat_buyer_threshold, regular_buyer_threshold, etc.).
 
     Returns:
         (funnel_table, dropoff_insights).
     """
-    funnel = build_funnel(df, rfm=rfm)
+    funnel = build_funnel(df, rfm=rfm, **funnel_kwargs)
 
     logger.info("Attribution Results:\n%s", funnel.to_string(index=False))
 
     insights = analyze_dropoff(funnel)
     logger.info("Key Drop-off Points:")
-    for stage, info in insights.items():
+    for _stage, info in insights.items():
         logger.info(
             "  %s → %s: %.1f%% retained, %.1f%% dropped (%s customers)",
             info["from"], info["to"], info["conversion"],
@@ -165,7 +185,12 @@ def run_funnel(df: pd.DataFrame, output_dir: str,
 
 
 if __name__ == "__main__":
-    from config import DATA_DIR, DATA_FILE, OUTPUT_DIR, setup_logging
+    from config import (  # type: ignore[import-not-found]  # noqa: E501
+        DATA_DIR,
+        DATA_FILE,
+        OUTPUT_DIR,
+        setup_logging,
+    )
     setup_logging()
     from data_preprocessing import load_and_clean  # type: ignore[import-not-found]
     df = load_and_clean(str(DATA_DIR / DATA_FILE))

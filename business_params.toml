@@ -1,0 +1,15 @@
+# 业务参数配置 ─────────────────────────────────
+# 调整这些阈值来适配你的业务场景。
+# 快消品 vs 奢侈品 vs SaaS — 阈值完全不同。
+# -------------------------------------------------
+
+[funnel]
+repeat_buyer_threshold  = 2     # 购买多少次算"复购"
+regular_buyer_threshold = 5     # 购买多少次算"常客"
+high_value_quantile     = 0.80  # Top X% 消费算"高价值"
+vip_quantile            = 0.95  # Top X% 消费算"VIP"
+
+[clv]
+min_lifespan_days = 30          # 单次购买客户的生命周期底限 (避免频率膨胀)
+freq_cap          = 10          # 月购买频率上限 (削去极端异常值)
+projection_months = 12          # CLV 预测展望月数

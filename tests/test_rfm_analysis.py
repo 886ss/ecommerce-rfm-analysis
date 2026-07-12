@@ -1,5 +1,4 @@
 """Tests for rfm_analysis — scoring boundaries and segment mapping."""
-import numpy as np
 import pandas as pd
 import pytest
 

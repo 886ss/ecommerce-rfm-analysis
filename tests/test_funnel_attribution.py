@@ -2,7 +2,7 @@
 import pandas as pd
 import pytest
 
-from funnel_attribution import build_funnel, analyze_dropoff
+from funnel_attribution import analyze_dropoff, build_funnel
 
 
 @pytest.fixture

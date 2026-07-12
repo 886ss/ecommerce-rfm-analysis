@@ -9,11 +9,19 @@ import numpy as np
 import pandas as pd
 
 try:
-    from .plotting import SEGMENT_COLORS, save_chart, plt
+    from .plotting import SEGMENT_COLORS, plt, save_chart
     from .rfm_analysis import compute_rfm, score_rfm, segment_rfm
 except ImportError:
-    from plotting import SEGMENT_COLORS, save_chart, plt  # type: ignore[no-redef]
-    from rfm_analysis import compute_rfm, score_rfm, segment_rfm  # type: ignore[no-redef]
+    from plotting import (  # type: ignore[import-not-found, no-redef]
+        SEGMENT_COLORS,
+        plt,
+        save_chart,
+    )
+    from rfm_analysis import (  # type: ignore[import-not-found, no-redef]
+        compute_rfm,
+        score_rfm,
+        segment_rfm,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -120,8 +128,8 @@ def plot_clv(clv: pd.DataFrame, output_dir: str) -> None:
     ]
     axes[0].boxplot(
         box_data, patch_artist=True, showfliers=False,
-        boxprops=dict(facecolor="#3498db", alpha=0.7),
-        medianprops=dict(color="darkred", linewidth=2),
+        boxprops={"facecolor": "#3498db", "alpha": 0.7},
+        medianprops={"color": "darkred", "linewidth": 2},
     )
     axes[0].set_xticklabels(top_segs)
     axes[0].set_title(
@@ -172,7 +180,12 @@ def run_clv(
 
 
 if __name__ == "__main__":
-    from config import DATA_DIR, DATA_FILE, OUTPUT_DIR, setup_logging
+    from config import (  # type: ignore[import-not-found]  # noqa: E501
+        DATA_DIR,
+        DATA_FILE,
+        OUTPUT_DIR,
+        setup_logging,
+    )
     setup_logging()
     from data_preprocessing import load_and_clean  # type: ignore[import-not-found]
 

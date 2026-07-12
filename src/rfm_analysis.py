@@ -9,9 +9,13 @@ import numpy as np
 import pandas as pd
 
 try:
-    from .plotting import PALETTE_10, save_chart, plt
+    from .plotting import PALETTE_10, plt, save_chart
 except ImportError:
-    from plotting import PALETTE_10, save_chart, plt  # type: ignore[no-redef]
+    from plotting import (  # type: ignore[import-not-found, no-redef]
+        PALETTE_10,
+        plt,
+        save_chart,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -127,12 +131,12 @@ def plot_rfm(rfm: pd.DataFrame, output_dir: str) -> None:
 
     Small segments (<3% of customers) are merged into "Others".
     """
-    seg_counts = rfm["Segment"].value_counts()
+    seg_counts: pd.Series = rfm["Segment"].value_counts()
 
-    # Merge tiny segments for readability
-    threshold = 0.03 * seg_counts.sum()
-    main_segs = seg_counts[seg_counts >= threshold]
-    other_count = seg_counts[seg_counts < threshold].sum()
+    # Merge tiny segments (<3% of total) into "Others"
+    min_count: int = int(0.03 * len(rfm))
+    main_segs = seg_counts[seg_counts >= min_count]
+    other_count: int = int(seg_counts[seg_counts < min_count].sum())
     if other_count > 0:
         main_segs = pd.concat([main_segs, pd.Series({"Others": other_count})])
 
@@ -148,11 +152,13 @@ def plot_rfm(rfm: pd.DataFrame, output_dir: str) -> None:
 
     # ── Revenue bar chart ──
     seg_rev = rfm.groupby("Segment")["Monetary"].sum().sort_values()
-    bars = axes[1].barh(seg_rev.index, seg_rev.values / 1e6,
-                        color="#3498db", edgecolor="white")
+    bars = axes[1].barh(
+        seg_rev.index, seg_rev.values / 1e6,  # type: ignore[operator]
+        color="#3498db", edgecolor="white",
+    )
     axes[1].set_xlabel("Total Revenue (Million GBP)", fontsize=11)
     axes[1].set_title("Revenue by Segment", fontsize=13, fontweight="bold")
-    for bar, val in zip(bars, seg_rev.values):
+    for bar, val in zip(bars, seg_rev.values, strict=True):
         axes[1].text(
             bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2,
             f"{val/1e6:.2f}M", va="center", fontsize=8,
@@ -186,9 +192,13 @@ def run_rfm(df: pd.DataFrame, output_dir: str) -> tuple[pd.DataFrame, pd.DataFra
 
 
 if __name__ == "__main__":
-    from config import DATA_DIR, DATA_FILE, OUTPUT_DIR, setup_logging
+    from config import (  # type: ignore[import-not-found]  # noqa: E501
+        DATA_DIR,
+        DATA_FILE,
+        OUTPUT_DIR,
+        setup_logging,
+    )
     setup_logging()
-    # Import directly (not via .) when run as script
     from data_preprocessing import load_and_clean  # type: ignore[import-not-found]
     df = load_and_clean(str(DATA_DIR / DATA_FILE))
     run_rfm(df, str(OUTPUT_DIR))
