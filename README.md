@@ -6,8 +6,7 @@
 ![ruff](https://img.shields.io/badge/ruff-clean-green)
 
 > 基于 **UCI Online Retail** 真实交易数据的电商用户行为分析项目  
-> RFM 分层 + 漏斗归因 + CLV 估算 — 完整用户价值分析链路  
-> 可配置、可复用的产品级数据分析项目
+> RFM 分层 + 漏斗归因 + CLV 估算 — 完整用户价值分析链路
 
 ---
 
