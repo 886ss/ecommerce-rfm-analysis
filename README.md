@@ -75,22 +75,22 @@ rfm, summary = run_rfm(df, "output/")
 
 ```text
 ecommerce-rfm-analysis/
-├── .github/workflows/ci.yml     // push 自动 pytest + mypy + ruff
-├── pyproject.toml               // 包配置 + mypy/ruff/pytest 配置
-├── column_mapping.toml          // 列名映射（换数据只改这个）
-├── business_params.toml         // 业务阈值（漏斗/CLV 参数）
+├── .github/workflows/ci.yml
+├── pyproject.toml
+├── column_mapping.toml
+├── business_params.toml
 ├── requirements.txt
 ├── .gitignore
 ├── src/
 │   ├── __init__.py
-│   ├── config.py                // 路径/常量/日志/业务参数加载
-│   ├── schema.py                // 列名映射 + 输入校验
-│   ├── plotting.py              // matplotlib Agg + 颜色调色板 + save_chart
-│   ├── main.py                  // argparse CLI 入口
-│   ├── data_preprocessing.py    // 数据加载 + 列名rename + 清洗
-│   ├── rfm_analysis.py          // RFM 分层
-│   ├── funnel_attribution.py    // 漏斗归因（阈值可配置）
-│   └── clv_estimation.py        // CLV 估算（参数可配置）
+│   ├── config.py
+│   ├── schema.py
+│   ├── plotting.py
+│   ├── main.py
+│   ├── data_preprocessing.py
+│   ├── rfm_analysis.py
+│   ├── funnel_attribution.py
+│   └── clv_estimation.py
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py
@@ -98,9 +98,9 @@ ecommerce-rfm-analysis/
 │   ├── test_rfm_analysis.py
 │   ├── test_funnel_attribution.py
 │   └── test_clv_estimation.py
-├── docs/images/                 // 结果图表（README 展示用）
-├── data/                        // (gitignored) 原始数据
-└── output/                      // (gitignored) 生成图表和 CSV
+├── docs/images/
+├── data/
+└── output/
 ```
 
 ---
