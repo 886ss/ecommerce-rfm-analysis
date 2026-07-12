@@ -131,6 +131,14 @@ ecommerce-rfm-analysis/
 | Champions | 21.5% | **70.2%** |
 | Loyal Customers | 15.4% | 11.8% |
 
+> **参考：经典 RFM 三维八分法**
+>
+> 下图是 CDA 标准 RFM 理论模型 —— R/F/M 各取高/低（基于均值/中位二分），
+> 得到 8 类用户及对应运营策略。本项目采用更细粒度的五分位 + np.select
+> 10 段法，本质是该模型的工程化扩展。
+>
+> ![RFM 八分法模型](docs/images/rfm_8segment_model.png)
+
 ### 2. 漏斗归因分析 (`funnel_attribution.py`)
 
 5 层转化漏斗，阈值通过 `business_params.toml` 可配置。
