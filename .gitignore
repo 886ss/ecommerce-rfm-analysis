@@ -31,4 +31,5 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
-docs/
+# Docs: keep images (referenced in README), ignore planning notes
+docs/*.md
