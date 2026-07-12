@@ -23,7 +23,7 @@
 | 唯一订单 | 18,532 |
 | 时间范围 | 2010-12-01 ~ 2011-12-09 |
 | 总营收 | £8,911,408 |
-| 数据地址 | https://archive.ics.uci.edu/dataset/352/online+retail |
+| 数据地址 | [UCI Dataset](https://archive.ics.uci.edu/dataset/352/online+retail) |
 
 > 请将 `Online Retail.xlsx` 放入 `data/` 目录后运行。
 
@@ -53,7 +53,7 @@ python -m src.main --data ./data/xxx.xlsx --params ./business_params.toml
 | `--output PATH` | 输出目录（默认 `output/`） |
 | `--mapping PATH` | 列名映射配置（`column_mapping.toml`） |
 | `--params PATH` | 业务参数配置（`business_params.toml`） |
-| `--only {rfm,funnel,clv}` | 只运行一个模块 |
+| `--only {rfm,funnel,clv}` | 只运行一个模块（RFM 为基础，funnel/clv 会自动先跑 RFM） |
 | `--no-plot` | 跳过图表（CI / 无 GUI 环境） |
 | `--log-level LEVEL` | 日志级别（DEBUG/INFO/WARNING/ERROR） |
 
@@ -80,10 +80,11 @@ ecommerce-rfm-analysis/
 ├── column_mapping.toml          // 列名映射（换数据只改这个）
 ├── business_params.toml         // 业务阈值（漏斗/CLV 参数）
 ├── requirements.txt
+├── .gitignore
 ├── src/
 │   ├── __init__.py
 │   ├── config.py                // 路径/常量/日志/业务参数加载
-│   ├── schema.py                // 列名映射 + 输入校验（新增）
+│   ├── schema.py                // 列名映射 + 输入校验
 │   ├── plotting.py              // matplotlib Agg + 颜色调色板 + save_chart
 │   ├── main.py                  // argparse CLI 入口
 │   ├── data_preprocessing.py    // 数据加载 + 列名rename + 清洗
@@ -91,16 +92,13 @@ ecommerce-rfm-analysis/
 │   ├── funnel_attribution.py    // 漏斗归因（阈值可配置）
 │   └── clv_estimation.py        // CLV 估算（参数可配置）
 ├── tests/
+│   ├── __init__.py
 │   ├── conftest.py
 │   ├── test_data_preprocessing.py
 │   ├── test_rfm_analysis.py
 │   ├── test_funnel_attribution.py
 │   └── test_clv_estimation.py
-├── docs/
-│   ├── PLAN.md                  // 分阶段执行计划
-│   ├── ARCHITECTURE.md          // 数据流图 + 设计决策 + 扩展指南
-│   ├── MODULES.md               // 15 个函数签名索引
-│   └── MEETING_NOTES.md         // 通信纪要
+├── docs/images/                 // 结果图表（README 展示用）
 ├── data/                        // (gitignored) 原始数据
 └── output/                      // (gitignored) 生成图表和 CSV
 ```
@@ -114,7 +112,7 @@ ecommerce-rfm-analysis/
 | 测试 | `pytest -v` | 29 passed ✅ |
 | 类型 | `mypy src/ --strict` | 0 errors ✅ |
 | Lint | `ruff check src/ tests/` | All checks passed ✅ |
-| CI | push → GitHub Actions | 自动运行上述三项 |
+| CI | push → GitHub Actions | pytest + mypy + ruff 自动运行 |
 
 ---
 
@@ -158,8 +156,8 @@ ecommerce-rfm-analysis/
 
 ```bash
 pip install -r requirements.txt
-python -m src.main --data ./data/Online Retail.xlsx
-pytest -v
+python -m src.main --data "./data/Online Retail.xlsx"
+pytest tests/ -v
 ```
 
 ## 技术栈
